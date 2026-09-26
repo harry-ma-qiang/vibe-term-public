@@ -1,10 +1,18 @@
 // Copyright (C) 2026 harry-ma-qiang
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Wire action and request types: what a decoded client request asks the
-//! daemon to do, plus the in-flight run and watch bookkeeping.
+//! Wire requests: the parser for the public verbs, what a decoded request
+//! asks the daemon to do, and the in-flight run and watch bookkeeping.
 
 use std::os::unix::net::UnixStream;
+
+mod keys;
+mod parsers;
+mod status;
+
+pub use keys::parse_key_name;
+pub use parsers::cmd_read;
+pub use status::cmd_status;
 
 /// Process liveness check that never sends a signal.
 pub fn pid_exists(pid: i32) -> bool {
@@ -149,3 +157,78 @@ pub fn json_err(msg: &str) -> String {
     let escaped = msg.replace('\\', "\\\\").replace('"', "'");
     format!("{{\"error\":\"{escaped}\"}}\n")
 }
+
+/// Decode one request line into the action it asks for.
+///
+/// Arguments split on tabs when any are present, otherwise on whitespace.
+pub fn parse_api_request(
+    request: &str,
+    session: &crate::session::Session,
+    stream: UnixStream,
+) -> ApiAction {
+    let parts: Vec<&str> = if request.contains('\t') {
+        request.split('\t').collect()
+    } else {
+        request.split_whitespace().collect()
+    };
+    match parts.first().copied() {
+        Some("read") | Some("capture") => {
+            ApiAction::Response(cmd_read(&parts[1..], session), stream)
+        }
+        Some("status") => ApiAction::Response(cmd_status(session), stream),
+        Some("send") => parsers::parse_send(&parts[1..], stream),
+        Some("close") => {
+            if let Some(pane_id) = parts.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                ApiAction::Close { pane_id, stream }
+            } else {
+                ApiAction::Response(json_err("usage: close <pane>"), stream)
+            }
+        }
+        Some("wait") => {
+            if let Some(pane_id) = parts.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                let pattern = parts.get(2).unwrap_or(&"").to_string();
+                let timeout = parts.get(3).and_then(|s| s.parse().ok()).unwrap_or(30);
+                if pattern.is_empty() {
+                    ApiAction::Response(json_err("usage: wait <pane> <pattern> [timeout]"), stream)
+                } else {
+                    ApiAction::Wait {
+                        pane_id,
+                        pattern,
+                        timeout_secs: timeout,
+                        stream,
+                    }
+                }
+            } else {
+                ApiAction::Response(json_err("usage: wait <pane> <pattern> [timeout]"), stream)
+            }
+        }
+        Some("exec") => match crate::wire_parser::parse_exec_args(&parts[1..]) {
+            Ok(parsed) => ApiAction::Exec {
+                cmd: parsed.child_cmd,
+                timeout_secs: parsed.timeout_secs,
+                no_timeout: parsed.no_timeout,
+                notify_pattern: parsed.notify_pattern,
+                stream,
+            },
+            Err(e) => ApiAction::Response(json_err(&e.to_string()), stream),
+        },
+        Some("serve") => match crate::wire_parser::parse_serve_args(&parts[1..]) {
+            Ok(parsed) => ApiAction::Serve {
+                cmd: parsed.child_cmd,
+                pattern: parsed.pattern,
+                timeout_secs: parsed.timeout_secs,
+                no_timeout: parsed.no_timeout,
+                stream,
+            },
+            Err(e) => ApiAction::Response(json_err(&e.to_string()), stream),
+        },
+        _ => ApiAction::Response(
+            json_err(&format!("unknown: {}", parts.first().unwrap_or(&""))),
+            stream,
+        ),
+    }
+}
+
+#[cfg(test)]
+#[path = "tests/capture.rs"]
+mod tests;

@@ -43,6 +43,10 @@ pub trait ServicePane: Send {
     fn accepts_input_from(&self, _observer_id: ClientId) -> bool {
         true
     }
+    /// A sender into the service's inbox, for services that take messages.
+    fn ipc_sender(&self) -> Option<crate::runtime::ipc_queue::IpcSender> {
+        None
+    }
     /// Machine-readable pane state for the wire protocol.
     fn status_json(&self) -> Option<serde_json::Value> {
         None

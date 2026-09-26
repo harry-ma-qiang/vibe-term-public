@@ -467,6 +467,27 @@ impl Pane {
         }
     }
 
+    /// The live screen as text, soft wraps rejoined, trailing blank rows dropped.
+    pub fn capture_text(&self) -> String {
+        let mut lines: Vec<String> = Vec::new();
+        for row in 0..self.screen.rows {
+            let text = self.screen.row_text(row);
+            if row > 0 && self.screen.wrapped[row - 1] {
+                if let Some(last) = lines.last_mut() {
+                    last.push_str(&text);
+                } else {
+                    lines.push(text);
+                }
+            } else {
+                lines.push(text);
+            }
+        }
+        while lines.last().is_some_and(|l| l.is_empty()) {
+            lines.pop();
+        }
+        lines.join("\n")
+    }
+
     /// Scrollback plus the live screen as text, soft wraps rejoined.
     pub fn capture_full_text(&self) -> String {
         let mut lines: Vec<String> = Vec::new();

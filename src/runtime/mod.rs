@@ -5,5 +5,7 @@
 
 /// Cancel tokens and the registry of in-flight streaming calls.
 pub mod cancel;
+/// An in-process message queue into a service pane.
+pub mod ipc_queue;
 
 pub use cancel::{CancelToken, StreamRegistry};

@@ -6,8 +6,10 @@
 
 /// The `signal` wire verb: its name safelist, parsing and delivery.
 pub mod api_dispatch_signal;
-/// Wire action and request types for decoded client requests.
+/// The request parser for the public verbs, and decoded request types.
 pub mod capture;
+/// Running exec and serve requests and answering them when done.
+pub mod commands;
 /// Terminal emulator screen, cells, styles and scrollback.
 pub mod emulator;
 /// Secret redaction over an emulated screen.
@@ -36,6 +38,8 @@ pub mod renderer;
 pub mod runtime;
 /// Pane-local mouse selection, copied text and clipboard delivery.
 pub mod selection;
+/// The control socket: viewers, one-shot requests and pending waits.
+pub mod server;
 /// Service panes and the registry that builds them by name.
 pub mod service;
 /// The session: panes, focus, layout, recorder and finished panes' output.
