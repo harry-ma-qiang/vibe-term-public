@@ -533,6 +533,45 @@ impl Pane {
         let text = self.capture_full_text();
         text.lines().count()
     }
+
+    /// The text a viewer currently sees, honouring scrollback position.
+    pub fn visible_text(&self) -> String {
+        if self.scroll_offset == 0 {
+            return self.capture_text();
+        }
+        let sb_len = self.screen.scrollback_len();
+        let view_start = sb_len.saturating_sub(self.scroll_offset);
+        let mut lines: Vec<String> = Vec::new();
+        let mut current = String::new();
+        for row in 0..self.screen.rows {
+            let abs = view_start + row;
+            let (text, wrapped) = if abs < sb_len {
+                (
+                    self.screen.scrollback_row_text(abs).unwrap_or_default(),
+                    self.screen.scrollback_is_wrapped(abs),
+                )
+            } else {
+                let sr = abs - sb_len;
+                if sr >= self.screen.rows {
+                    break;
+                }
+                (
+                    self.screen.row_text(sr),
+                    self.screen.wrapped.get(sr).copied().unwrap_or(false),
+                )
+            };
+            if wrapped && row + 1 < self.screen.rows {
+                current.push_str(&text);
+            } else {
+                current.push_str(text.trim_end());
+                lines.push(std::mem::take(&mut current));
+            }
+        }
+        while lines.last().is_some_and(|l| l.is_empty()) {
+            lines.pop();
+        }
+        lines.join("\n")
+    }
 }
 
 #[cfg(test)]

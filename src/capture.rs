@@ -8,10 +8,12 @@ use std::os::unix::net::UnixStream;
 
 mod keys;
 mod parsers;
+mod session;
 mod status;
 
 pub use keys::parse_key_name;
 pub use parsers::cmd_read;
+pub use session::{generate_session_name, resolve_session, session_name_exists};
 pub use status::cmd_status;
 
 /// Process liveness check that never sends a signal.

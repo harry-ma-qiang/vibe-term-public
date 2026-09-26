@@ -10,6 +10,7 @@ repository = "https://github.com/harry-ma-qiang/vibe-term-public"
 
 [dependencies]
 base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
 nix = { version = "0.31", features = ["term", "signal", "poll", "process", "fs"] }
 libc = "0.2"
 vte = { version = "0.15", features = ["ansi"] }

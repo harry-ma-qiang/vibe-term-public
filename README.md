@@ -8,16 +8,37 @@ watching.
 
 ## State: a partial port, and honest about it
 
-This is being lifted out of a larger private tool one layer at a time. What is here
-is a **library**, not yet a binary. It builds, its tests pass, and two examples run
-real work through it, but you cannot yet type `vibe-term` at a shell.
+This is being lifted out of a larger private tool one layer at a time. It is now a
+binary with nine subcommands: `start`, `stop`, and the seven verbs `exec`, `serve`,
+`read`, `send`, `wait`, `status` and `close`. `vibe-term --help` lists them.
 
 ```
 cargo build                                # zero warnings
-cargo test                                 # 269 tests
+cargo test                                 # 415 tests
 cargo run --example smoke                  # what the emulator renders
 cargo run --example run_a_command          # a real command on a real pty
 ```
+
+## Try it
+
+```
+cargo build --release
+vt() { env -u VIBE_TERM_SOCKET ./target/release/vibe-term "$@"; }
+
+vt start --name demo                        # returns at once; the session runs on
+vt exec --name demo 'echo hi; exit 3'       # output and exit code, as JSON
+vt serve --name demo 'echo ready; while read l; do echo got:$l; done' ready
+vt status --name demo                       # every pane; the serve pane is id 2
+vt wait --name demo 2 got:x &               # matches output that arrives later
+vt send --name demo 2 command x
+vt close --name demo 2
+vt read --name demo 2                       # still answers after close
+vt stop --name demo                         # daemon gone, directory removed
+```
+
+`env -u VIBE_TERM_SOCKET` matters when you run this from inside another vibe-term
+pane: without `--name`, a command goes to the session in that variable. The whole
+run, with its output, is in `docs/test-a-started-session-detaches-and-keeps-working.md`.
 
 ## What is here
 
@@ -36,19 +57,13 @@ selection    mouse selection and copy
 monitor      cpu and memory per pane
 ```
 
-Roughly 6,500 lines, ported module by module, tests carried across with it.
+Roughly 11,000 lines, ported module by module, tests carried across with it.
 
 ## What is not here yet
 
-The command line, the socket server, the request dispatcher, and the loop that ties
-them together. Until those land there is no `exec`, no `serve`, no `attach`, and no
-daemon.
-
-One consequence is visible in the examples and worth knowing before you read the
-code: **a command that has finished is never marked finished.** Capturing its output
-works; noticing that it ended does not, because the code that notices also repaints
-the screen and the rendering module is not ported. See
-`docs/bug-a-finished-command-is-never-marked-finished.md`.
+`attach`: watching a running session on your own terminal and typing into it. The
+daemon still accepts a viewer and paints for one, but there is no client that
+connects as a viewer. Everything else is driven through the verbs above.
 
 ## Why the code looks the way it does
 
