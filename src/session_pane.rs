@@ -103,6 +103,7 @@ impl Session {
             return Err(format!("pane {pane_id} is not a service pane"));
         }
         let mut removed = self.panes.remove(idx);
+        self.remember_finished(&removed);
         removed.shutdown_service();
         self.sidebar_count = self.panes.len().saturating_sub(1);
         for (i, p) in self.panes.iter_mut().enumerate() {
@@ -125,6 +126,7 @@ impl Session {
         let new_service = crate::service::create_service(&name)
             .ok_or_else(|| format!("no factory registered: {name}"))?;
         let mut old = self.panes.remove(idx);
+        self.remember_finished(&old);
         old.shutdown_service();
         self.sidebar_count = self.panes.len().saturating_sub(1);
         for (i, p) in self.panes.iter_mut().enumerate() {
@@ -281,6 +283,7 @@ impl Session {
                 .collect();
             for i in to_remove {
                 let removed = self.panes.remove(i);
+                self.remember_finished(&removed);
                 removed.kill_process_tree();
             }
             self.sidebar_count = self.panes.len().saturating_sub(1);

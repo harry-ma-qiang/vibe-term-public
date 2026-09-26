@@ -227,3 +227,32 @@ fn a_reaped_pane_leaves_no_file_in_the_session_directory() {
 
     s.kill_all();
 }
+
+#[test]
+fn closing_a_pane_on_request_leaves_its_output_readable() {
+    let mut s = Session::new(160, 45);
+    s.sidebar_count = 1;
+    s.add_main("sleep", &["60"], SecretFilter::new()).unwrap();
+    s.add_sidebar_pane("sh", &["-c", "echo CLOSED_MARKER; sleep 60"])
+        .unwrap();
+    let id = s.panes[1].id;
+
+    for _ in 0..100 {
+        let _ = s.panes[1].feed_output();
+        if s.panes[1].capture_full_text().contains("CLOSED_MARKER") {
+            break;
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+
+    s.close_pane(id).expect("close on request");
+    assert!(s.pane_by_id(id).is_none(), "pane is gone from the registry");
+
+    let (_, text) = s
+        .read_pane(id, 100)
+        .expect("a closed pane is still readable");
+    assert!(
+        text.contains("CLOSED_MARKER"),
+        "closing on request keeps the output: {text:?}"
+    );
+}

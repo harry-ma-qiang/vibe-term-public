@@ -65,6 +65,7 @@ impl Session {
     pub fn close_pane(&mut self, pane_id: u32) -> Result<(), String> {
         if let Some(idx) = self.pane_index_by_id(pane_id) {
             let removed = self.panes.remove(idx);
+            self.remember_finished(&removed);
             removed.kill_process_tree();
             self.sidebar_count = self.panes.len().saturating_sub(1);
             for (i, p) in self.panes.iter_mut().enumerate() {
