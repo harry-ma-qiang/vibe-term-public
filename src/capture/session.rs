@@ -56,8 +56,8 @@ pub fn generate_session_name() -> String {
     ];
     const NOUN: &[&str] = &[
         "wojak", "pepe", "doge", "bonk", "monke", "fren", "anon", "npc", "chad", "doomer",
-        "bloomer", "zoomer", "goose", "honk", "boop", "stonk", "hodler", "ape",
-        "tendies", "vibes", "copium", "hopium", "kek",
+        "bloomer", "zoomer", "goose", "honk", "boop", "stonk", "hodler", "ape", "tendies", "vibes",
+        "copium", "hopium", "kek",
     ];
     let seed = std::time::SystemTime::now()
         .duration_since(std::time::SystemTime::UNIX_EPOCH)
