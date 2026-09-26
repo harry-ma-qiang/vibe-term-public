@@ -24,30 +24,14 @@ impl Session {
 
     /// The last lines of a pane's output, with its total line count.
     ///
-    /// A pane that has gone away is recovered from its log file instead.
+    /// A pane that has gone away is recovered from the finished list instead.
     pub fn read_pane(&self, pane_id: u32, max_lines: usize) -> Result<(usize, String), String> {
         match self.pane_by_id(pane_id) {
-            Some(pane) => {
-                let text = pane.capture_full_text();
-                let lines: Vec<&str> = text.lines().filter(|l| !l.is_empty()).collect();
-                let total = lines.len();
-                let start = total.saturating_sub(max_lines);
-                Ok((total, lines[start..].join("\n")))
-            }
-            None => {
-                if let Some(dir) = &self.session_dir {
-                    let log_path = dir.join("panes").join(format!("{pane_id}.log"));
-                    if log_path.exists()
-                        && let Ok(content) = std::fs::read_to_string(&log_path)
-                    {
-                        let lines: Vec<&str> = content.lines().filter(|l| !l.is_empty()).collect();
-                        let total = lines.len();
-                        let start = total.saturating_sub(max_lines);
-                        return Ok((total, lines[start..].join("\n")));
-                    }
-                }
-                Err(format!("pane not found: {pane_id}"))
-            }
+            Some(pane) => Ok(tail_lines(&pane.capture_full_text(), max_lines)),
+            None => match self.finished_text(pane_id) {
+                Some(text) => Ok(tail_lines(text, max_lines)),
+                None => Err(format!("pane not found: {pane_id}")),
+            },
         }
     }
 
@@ -77,11 +61,10 @@ impl Session {
             .unwrap_or(0)
     }
 
-    /// Remove a pane, flush its log, kill its process group, lay out again.
+    /// Remove a pane, kill its process group, lay the grid out again.
     pub fn close_pane(&mut self, pane_id: u32) -> Result<(), String> {
         if let Some(idx) = self.pane_index_by_id(pane_id) {
-            let mut removed = self.panes.remove(idx);
-            removed.flush_log_final();
+            let removed = self.panes.remove(idx);
             removed.kill_process_tree();
             self.sidebar_count = self.panes.len().saturating_sub(1);
             for (i, p) in self.panes.iter_mut().enumerate() {
@@ -101,7 +84,6 @@ impl Session {
             pane.completed = true;
             pane.completed_exit = Some(exit_code);
             pane.exec_managed = false;
-            pane.flush_log_final();
         }
     }
 
@@ -113,9 +95,6 @@ impl Session {
             .find(|p| p.is_idle() && !p.is_completed())
             .map(|p| p.id)
         {
-            if let Some(pane) = self.pane_by_id_mut(idle) {
-                pane.flush_log_final();
-            }
             return Ok(idle);
         }
         if !self.can_add_sidebar() {
@@ -159,9 +138,8 @@ impl Session {
                 .map_err(|e| e.to_string())?;
         new_pane.id = new_id;
         new_pane.frame.pid = new_pane.pty().child_pid.as_raw();
-        // why: a pane reaped before its output drains reports failure with an empty log.
+        // why: a pane reaped before its output drains reports failure with nothing captured.
         new_pane.exec_managed = true;
-        self.open_pane_log(&mut new_pane);
         self.panes.push(new_pane);
         let _ = self.relayout();
         self.needs_redraw = true;
@@ -171,9 +149,7 @@ impl Session {
     /// Reuse a completed pane, or spawn one, for a one-shot command.
     pub fn acquire_exec_pane(&mut self, cmd: &str) -> Result<u32, String> {
         if let Some(idx) = self.panes.iter().position(|p| p.is_completed()) {
-            let pane = &mut self.panes[idx];
-            pane.flush_log_final();
-
+            let pane = &self.panes[idx];
             let frame = pane.frame.clone();
             let filter = pane.filter.clone_secrets();
             let slot = pane.frame.slot;
@@ -188,8 +164,6 @@ impl Session {
             new_pane.frame.slot = slot;
             new_pane.frame.pid = new_pane.pty().child_pid.as_raw();
             new_pane.exec_managed = true;
-            self.open_pane_log(&mut new_pane);
-
             self.panes[idx] = new_pane;
             self.needs_redraw = true;
             return Ok(new_id);
@@ -221,12 +195,18 @@ impl Session {
         new_pane.id = new_id;
         new_pane.frame.pid = new_pane.pty().child_pid.as_raw();
         new_pane.exec_managed = true;
-        self.open_pane_log(&mut new_pane);
         self.panes.push(new_pane);
         let _ = self.relayout();
         self.needs_redraw = true;
         Ok(new_id)
     }
+}
+
+fn tail_lines(text: &str, max_lines: usize) -> (usize, String) {
+    let lines: Vec<&str> = text.lines().filter(|l| !l.is_empty()).collect();
+    let total = lines.len();
+    let start = total.saturating_sub(max_lines);
+    (total, lines[start..].join("\n"))
 }
 
 /// The most recent line after `baseline` matching any alternative.

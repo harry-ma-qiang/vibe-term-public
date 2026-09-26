@@ -22,8 +22,6 @@ impl Session {
         pane.id = id;
         pane.frame.pid = pane.pty().child_pid.as_raw();
         self.filter_enabled = pane.filter.is_enabled();
-        self.open_pane_log(&mut pane);
-
         self.panes.push(pane);
         Ok(())
     }
@@ -54,8 +52,6 @@ impl Session {
         let mut pane = Pane::spawn_with_id(cmd, args, frame, filter, Some(id))?;
         pane.id = id;
         pane.frame.pid = pane.pty().child_pid.as_raw();
-        self.open_pane_log(&mut pane);
-
         self.panes.push(pane);
         Ok(())
     }
@@ -92,7 +88,6 @@ impl Session {
         let id = self.assign_pane_id();
         let mut pane = Pane::from_service(name.to_string(), service, frame, filter);
         pane.id = id;
-        self.open_pane_log(&mut pane);
         self.panes.push(pane);
         let _ = self.relayout();
         self.needs_redraw = true;
@@ -109,7 +104,6 @@ impl Session {
         }
         let mut removed = self.panes.remove(idx);
         removed.shutdown_service();
-        removed.flush_log_final();
         self.sidebar_count = self.panes.len().saturating_sub(1);
         for (i, p) in self.panes.iter_mut().enumerate() {
             p.frame.slot = i;
@@ -132,7 +126,6 @@ impl Session {
             .ok_or_else(|| format!("no factory registered: {name}"))?;
         let mut old = self.panes.remove(idx);
         old.shutdown_service();
-        old.flush_log_final();
         self.sidebar_count = self.panes.len().saturating_sub(1);
         for (i, p) in self.panes.iter_mut().enumerate() {
             p.frame.slot = i;
@@ -332,8 +325,8 @@ impl Session {
             return Ok(false);
         }
         for &i in dead.iter().rev() {
-            let mut removed = self.panes.remove(i);
-            removed.flush_log_final();
+            let removed = self.panes.remove(i);
+            self.remember_finished(&removed);
             removed.kill_process_tree();
             if self.focused >= self.panes.len() && !self.panes.is_empty() {
                 self.focused = self.panes.len() - 1;

@@ -99,7 +99,6 @@ impl Session {
             }
             match pane.feed_output() {
                 Ok(true) => {
-                    pane.flush_log();
                     if pane.render(out).is_err() {
                         continue;
                     }

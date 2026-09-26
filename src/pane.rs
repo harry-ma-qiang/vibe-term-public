@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! One pane: either a child pseudoterminal or a service, plus its screen,
-//! scroll position, redaction, chrome, resource stats and output log.
+//! scroll position, redaction, chrome and resource stats.
 
 use crate::emulator::Screen;
 use crate::filter::SecretFilter;
@@ -11,10 +11,8 @@ use crate::monitor::PaneStats;
 use crate::pty::{Pty, PtySize};
 use crate::renderer::Renderer;
 use crate::service::ServicePane;
-use std::fs::File;
-use std::io::{self, BufWriter, Write};
+use std::io::{self, Write};
 use std::os::fd::{AsFd, AsRawFd};
-use std::path::Path;
 
 /// Output ceiling for one pane, past which its child is killed.
 ///
@@ -70,13 +68,11 @@ pub struct Pane {
     pub highlight: Option<crate::selection::Selection>,
     pub stats: PaneStats,
     pub original_cmd: String,
-    pub last_logged_line: usize,
     pub completed: bool,
     pub completed_exit: Option<i32>,
     pub exec_managed: bool,
     pub total_output_bytes: usize,
     pub output_capped: bool,
-    log_writer: Option<BufWriter<File>>,
 }
 
 impl Pane {
@@ -183,13 +179,11 @@ impl Pane {
             highlight: None,
             stats: PaneStats::default(),
             original_cmd,
-            last_logged_line: 0,
             completed: false,
             completed_exit: None,
             exec_managed: false,
             total_output_bytes: 0,
             output_capped: false,
-            log_writer: None,
         })
     }
 
@@ -221,13 +215,11 @@ impl Pane {
             highlight: None,
             stats: PaneStats::default(),
             original_cmd,
-            last_logged_line: 0,
             completed: false,
             completed_exit: None,
             exec_managed: false,
             total_output_bytes: 0,
             output_capped: false,
-            log_writer: None,
         }
     }
 
@@ -472,73 +464,6 @@ impl Pane {
         match &self.kind {
             PaneKind::Pty(p) => p.is_alive(),
             PaneKind::Service { .. } => true,
-        }
-    }
-
-    /// Open this pane's output log inside the session's pane directory.
-    pub fn open_log(&mut self, panes_dir: &Path) {
-        let path = panes_dir.join(format!("{}.log", self.id));
-        if let Ok(file) = File::create(&path) {
-            self.log_writer = Some(BufWriter::new(file));
-        }
-    }
-
-    fn log_timestamp() -> String {
-        let dur = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default();
-        let secs = dur.as_secs() as i64;
-        let millis = dur.subsec_millis();
-        let mut tm: libc::tm = unsafe { std::mem::zeroed() };
-        unsafe {
-            libc::localtime_r(&secs, &mut tm);
-        }
-        let oh = tm.tm_gmtoff / 3600;
-        let om = (tm.tm_gmtoff.abs() % 3600) / 60;
-        format!(
-            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}{:+03}:{:02}",
-            tm.tm_year + 1900,
-            tm.tm_mon + 1,
-            tm.tm_mday,
-            tm.tm_hour,
-            tm.tm_min,
-            tm.tm_sec,
-            millis,
-            oh,
-            om
-        )
-    }
-
-    /// Append newly scrolled-off rows to the pane log.
-    pub fn flush_log(&mut self) {
-        let sb_len = self.screen.scrollback_len();
-        if sb_len <= self.last_logged_line {
-            return;
-        }
-        if let Some(ref mut writer) = self.log_writer {
-            let ts = Self::log_timestamp();
-            for i in self.last_logged_line..sb_len {
-                if let Some(text) = self.screen.scrollback_row_text(i) {
-                    let _ = writeln!(writer, "{} {}", ts, text);
-                }
-            }
-            let _ = writer.flush();
-        }
-        self.last_logged_line = sb_len;
-    }
-
-    /// Flush the log and then append the rows still on screen.
-    pub fn flush_log_final(&mut self) {
-        self.flush_log();
-        if let Some(ref mut writer) = self.log_writer {
-            let ts = Self::log_timestamp();
-            for row in 0..self.screen.rows {
-                let text = self.screen.row_text(row);
-                if !text.is_empty() {
-                    let _ = writeln!(writer, "{} {}", ts, text);
-                }
-            }
-            let _ = writer.flush();
         }
     }
 

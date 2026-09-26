@@ -1,13 +1,22 @@
 // Copyright (C) 2026 harry-ma-qiang
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The session: every pane, the focus, the layout inputs, the recorder and
-//! the on-disk session directory that pane logs are written into.
+//! The session: every pane, the focus, the layout inputs, the recorder, the
+//! output kept from panes that have finished, and the session directory.
 
 use crate::grid::{GridConfig, GridLayout, SidebarSide, SplitRatio};
 use crate::pane::Pane;
 use crate::recorder::Recorder;
 use std::path::PathBuf;
+
+/// How many finished panes a session remembers before dropping the oldest.
+pub const MAX_FINISHED_PANES: usize = 32;
+
+/// The captured text of a pane that has finished and been removed.
+pub struct FinishedPane {
+    pub id: u32,
+    pub text: String,
+}
 
 /// One multiplexer session: its panes and everything shared between them.
 pub struct Session {
@@ -40,6 +49,7 @@ pub struct Session {
     pub pending_quit_confirm: Option<std::time::Instant>,
     pub shutdown_requested: bool,
     pub selection: Option<crate::selection::Selection>,
+    pub finished: Vec<FinishedPane>,
     next_pane_id: u32,
 }
 
@@ -76,6 +86,7 @@ impl Session {
             pending_quit_confirm: None,
             shutdown_requested: false,
             selection: None,
+            finished: Vec::new(),
             next_pane_id: 0,
         }
     }
@@ -113,27 +124,24 @@ impl Session {
         })
     }
 
-    /// The directory holding one log file per pane.
-    pub fn panes_dir(&self) -> Option<PathBuf> {
-        self.session_dir.as_ref().map(|d| d.join("panes"))
+    /// Keep a finished pane's text, dropping the oldest once the cap is full.
+    pub fn remember_finished(&mut self, pane: &Pane) {
+        while self.finished.len() >= MAX_FINISHED_PANES {
+            self.finished.remove(0);
+        }
+        self.finished.push(FinishedPane {
+            id: pane.id,
+            text: pane.capture_full_text(),
+        });
     }
 
-    /// Open one pane's log file, creating the pane directory first.
-    pub fn open_pane_log(&self, pane: &mut Pane) {
-        if let Some(dir) = self.panes_dir() {
-            let _ = std::fs::create_dir_all(&dir);
-            pane.open_log(&dir);
-        }
-    }
-
-    /// Open a log file for every pane currently in the session.
-    pub fn open_all_pane_logs(&mut self) {
-        if let Some(dir) = self.panes_dir() {
-            let _ = std::fs::create_dir_all(&dir);
-            for pane in &mut self.panes {
-                pane.open_log(&dir);
-            }
-        }
+    /// The kept text of a finished pane, while the session still holds it.
+    pub fn finished_text(&self, id: u32) -> Option<&str> {
+        self.finished
+            .iter()
+            .rev()
+            .find(|f| f.id == id)
+            .map(|f| f.text.as_str())
     }
 
     /// The single-line status bar text for this session's state.

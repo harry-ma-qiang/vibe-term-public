@@ -22,7 +22,7 @@ pub mod input;
 pub mod lock;
 /// Per-pane cpu and memory sampling, and resource limits.
 pub mod monitor;
-/// One pane: a child pseudoterminal or a service, with its screen and log.
+/// One pane: a child pseudoterminal or a service, with its screen.
 pub mod pane;
 /// Diff and full painting of one pane, with redaction and selection overlays.
 pub mod pane_render;
@@ -38,7 +38,7 @@ pub mod runtime;
 pub mod selection;
 /// Service panes and the registry that builds them by name.
 pub mod service;
-/// The session: panes, focus, layout inputs, recorder and session directory.
+/// The session: panes, focus, layout, recorder and finished panes' output.
 pub mod session;
 /// The session side of the wire verbs: send, read, wait, close, acquire.
 pub mod session_api;
