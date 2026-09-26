@@ -165,7 +165,8 @@ impl Session {
             new_pane.frame.slot = slot;
             new_pane.frame.pid = new_pane.pty().child_pid.as_raw();
             new_pane.exec_managed = true;
-            self.panes[idx] = new_pane;
+            let reused = std::mem::replace(&mut self.panes[idx], new_pane);
+            self.remember_finished(&reused);
             self.needs_redraw = true;
             return Ok(new_id);
         }

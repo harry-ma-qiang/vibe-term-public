@@ -38,6 +38,14 @@ fn unique_server_name() -> String {
     )
 }
 
+// why: the server removes its socket on shutdown but not the directory holding it.
+struct TmpServerDir(String);
+impl Drop for TmpServerDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(format!("/tmp/vibe-term-{}", self.0));
+    }
+}
+
 pub(crate) fn run_exec(
     session: &mut Session,
     cmd: &str,
@@ -50,7 +58,9 @@ pub(crate) fn run_exec(
     // why: macOS rejects a read timeout set after the peer has closed.
     s2.set_nonblocking(false).unwrap();
     s2.set_read_timeout(Some(Duration::from_secs(30))).unwrap();
-    let mut srv = crate::server::Server::start_named(&unique_server_name()).unwrap();
+    let name = unique_server_name();
+    let _dir = TmpServerDir(name.clone());
+    let mut srv = crate::server::Server::start_named(&name).unwrap();
     let req = start_run(cmd, timeout_secs, no_timeout, None, session, s1, &mut srv);
     let mut reqs = Vec::new();
     if let Some(r) = req {

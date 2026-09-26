@@ -80,10 +80,6 @@ pub fn cmd_status(session: &crate::session::Session) -> String {
         .session_dir
         .as_ref()
         .map(|d| d.display().to_string());
-    let audit_log = session
-        .session_dir
-        .as_ref()
-        .map(|d| d.join("session.log").display().to_string());
     json_ok(serde_json::json!({
         "session": session.name,
         "focused": session.focused,
@@ -92,7 +88,6 @@ pub fn cmd_status(session: &crate::session::Session) -> String {
         "filter": session.filter_enabled,
         "panes": panes,
         "session_dir": session_dir,
-        "audit_log": audit_log,
         "total_panes": session.panes.len(),
         "browse": "disabled",
     }))
