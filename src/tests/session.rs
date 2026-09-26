@@ -399,3 +399,67 @@ fn restart_queue_skips_invalid_argv() {
         "queue drained even when skipped"
     );
 }
+
+#[test]
+fn quit_click_arms_the_toast_and_leaves_panes_running() {
+    let mut s = Session::new(160, 45);
+    s.add_main("sleep", &["999"], SecretFilter::new()).unwrap();
+    let pid = s.panes[0].pty().child_pid;
+    thread::sleep(Duration::from_millis(200));
+    let alive_before = unsafe { libc::kill(pid.as_raw(), 0) } == 0;
+    assert!(alive_before, "child must be alive before [Q]");
+
+    s.arm_quit_toast();
+    assert!(s.quit_toast_active(), "toast armed after [Q]");
+    thread::sleep(Duration::from_millis(200));
+    let alive_after = unsafe { libc::kill(pid.as_raw(), 0) } == 0;
+    assert!(
+        alive_after,
+        "panes must survive [Q] click - only confirmation arms shutdown"
+    );
+    assert!(!s.shutdown_requested, "shutdown not yet requested");
+
+    s.confirm_quit_yes();
+    assert!(s.shutdown_requested, "[Y] click sets shutdown_requested");
+    s.kill_all();
+}
+
+#[test]
+fn closing_the_only_sidebar_regrows_main_and_clears_the_screen() {
+    let mut s = Session::new(160, 45);
+    s.sidebar_count = 1;
+    s.add_main("sleep", &["60"], SecretFilter::new()).unwrap();
+    s.add_sidebar_pane("sleep", &["60"]).unwrap();
+
+    let split_main_w = s.panes[0].frame.outer.w;
+    assert!(
+        split_main_w < 160,
+        "with a sidebar the main pane is narrower than the grid: {split_main_w}"
+    );
+
+    let side_id = s.panes[1].id;
+    s.close_pane(side_id).unwrap();
+
+    assert_eq!(s.panes.len(), 1, "sidebar removed");
+    assert_eq!(s.sidebar_count, 0, "sidebar_count drops to 0 on close");
+    let full_main_w = s.panes[0].frame.outer.w;
+    assert_eq!(
+        full_main_w, 160,
+        "surviving main pane regrows to full grid width after close"
+    );
+    let (child_cols, _) = s.panes[0].frame.child_size();
+    assert_eq!(
+        s.panes[0].screen.cols, child_cols,
+        "screen width tracks the regrown frame so render_full fills the row"
+    );
+    assert!(s.needs_redraw, "close_pane requests a redraw");
+
+    let mut buf = Vec::new();
+    s.composite_frame(&mut buf).unwrap();
+    assert!(
+        buf.windows(4).any(|w| w == b"\x1b[2J"),
+        "composite redraw clears the screen, wiping the closed pane's region"
+    );
+
+    s.kill_all();
+}

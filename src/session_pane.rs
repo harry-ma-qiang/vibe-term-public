@@ -318,4 +318,39 @@ impl Session {
         }
         self.refresh_layout();
     }
+
+    /// Remove panes whose child has exited, then repaint; true when any went.
+    pub fn reap_dead_panes(&mut self, out: &mut impl std::io::Write) -> io::Result<bool> {
+        let dead: Vec<usize> = self
+            .panes
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.is_pty() && !p.is_alive() && !p.completed && !p.exec_managed)
+            .map(|(i, _)| i)
+            .collect();
+        if dead.is_empty() {
+            return Ok(false);
+        }
+        for &i in dead.iter().rev() {
+            let mut removed = self.panes.remove(i);
+            removed.flush_log_final();
+            removed.kill_process_tree();
+            if self.focused >= self.panes.len() && !self.panes.is_empty() {
+                self.focused = self.panes.len() - 1;
+            }
+        }
+        if self.panes.is_empty() {
+            return Ok(true);
+        }
+        self.sidebar_count = self.panes.len().saturating_sub(1);
+        for (i, pane) in self.panes.iter_mut().enumerate() {
+            pane.frame.slot = i;
+        }
+        let _ = self.relayout();
+        out.write_all(b"\x1b[2J")?;
+        self.render_all_borders(out)?;
+        self.render_status_bar(out)?;
+        self.force_render_all(out)?;
+        Ok(true)
+    }
 }

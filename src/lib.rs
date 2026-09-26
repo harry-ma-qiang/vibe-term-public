@@ -24,12 +24,16 @@ pub mod lock;
 pub mod monitor;
 /// One pane: a child pseudoterminal or a service, with its screen and log.
 pub mod pane;
+/// Diff and full painting of one pane, with redaction and selection overlays.
+pub mod pane_render;
 /// Pseudoterminal spawn, io, resize and reaping.
 pub mod pty;
 /// Recording of an emulated screen to a cast file.
 pub mod recorder;
 /// Full and diff painting of an emulated screen.
 pub mod renderer;
+/// Verb runtime: callsites, permissions and the result envelope.
+pub mod runtime;
 /// Pane-local mouse selection, copied text and clipboard delivery.
 pub mod selection;
 /// Service panes and the registry that builds them by name.
@@ -42,6 +46,10 @@ pub mod session_api;
 pub mod session_lifecycle;
 /// Adding, removing and relaying out a session's panes.
 pub mod session_pane;
+/// Painting a whole session, and the composited screen the recorder writes.
+pub mod session_render;
+/// The quit-confirm toast shown on the status bar's second row.
+pub mod session_toolbar;
 /// The two-row status bar: text, painting and click mapping.
 pub mod status_bar;
 /// Host terminal setup, restore and signal handling.

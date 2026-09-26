@@ -8,7 +8,9 @@ use super::{
     InputEvent, ServicePane, ServiceRegistry, create_service, register_factory,
     registered_factory_names, unregister_factory,
 };
+use crate::filter::SecretFilter;
 use crate::frame::Frame;
+use crate::session::Session;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -84,4 +86,15 @@ fn global_registry_round_trip() {
     assert_eq!(svc.name(), "global");
     assert!(unregister_factory(&unique));
     assert!(!registered_factory_names().contains(&unique));
+}
+
+#[test]
+fn recorder_skips_service_panes_in_composite() {
+    let mut s = Session::new(80, 24);
+    s.add_main("sleep", &["10"], SecretFilter::new()).unwrap();
+    let svc: Box<dyn ServicePane> = Box::new(TestService::new("test"));
+    let _ = s.add_service_pane("test", svc).unwrap();
+    let comp = crate::session_render::composite_panes(&s.panes, 80, 24, 0, "status");
+    let total = comp.cells.iter().flat_map(|r| r.iter()).count();
+    assert!(total > 0);
 }
