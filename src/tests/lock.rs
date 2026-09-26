@@ -252,7 +252,10 @@ fn chrome_label_held_idle_drops_suffix_too() {
     let now = Instant::now();
     l.force_last_input_at(Some(now - Duration::from_secs(120)));
     let label = format_chrome_label(&l);
-    assert_eq!(label, "L:held", "an idle pane drops the idle suffix: {label}");
+    assert_eq!(
+        label, "L:held",
+        "an idle pane drops the idle suffix: {label}"
+    );
 }
 
 #[test]
