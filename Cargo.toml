@@ -1,0 +1,26 @@
+[package]
+name = "vibe-term"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "A terminal multiplexer built to be driven by a program, not only by a person."
+license = "AGPL-3.0-or-later"
+authors = ["harry-ma-qiang"]
+repository = "https://github.com/harry-ma-qiang/vibe-term-public"
+
+[dependencies]
+nix = { version = "0.31", features = ["term", "signal", "poll", "process", "fs"] }
+libc = "0.2"
+vte = { version = "0.15", features = ["ansi"] }
+unicode-width = "0.2"
+crossterm = "0.28"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+strip = true
+lto = true

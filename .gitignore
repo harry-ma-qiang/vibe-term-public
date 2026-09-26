@@ -1,0 +1,61 @@
+# --- secrets, first and loudest ---------------------------------------------
+.env
+.env.*
+*.env
+*.env.sh
+*.key
+*.pem
+*.p12
+*.pfx
+*.token
+secrets/
+secrets.*
+credentials*
+id_rsa*
+.netrc
+
+# --- rust -------------------------------------------------------------------
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock.orig
+
+# --- runtime state this tool writes -----------------------------------------
+*.sock
+*.pid
+*.cast
+*.log
+panes/
+sessions/
+recordings/
+
+# --- editors and agents -----------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.claude/
+CLAUDE.md
+AGENTS.md
+.specs/
+PLAN.md
+
+# --- macOS ------------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# --- Windows ----------------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Linux ------------------------------------------------------------------
+.directory
+.Trash-*
+.nfs*
