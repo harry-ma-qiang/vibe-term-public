@@ -12,6 +12,7 @@ use std::io::Read;
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
+mod dispatch;
 mod exec;
 mod heredoc;
 mod pane_pool;

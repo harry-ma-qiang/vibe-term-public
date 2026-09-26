@@ -31,23 +31,9 @@ pub fn pid_exists(pid: i32) -> bool {
 /// A decoded client request, paired with the stream that must be answered.
 pub enum ApiAction {
     Response(String, UnixStream),
-    Runtime {
-        ns: &'static str,
-        verb: String,
-        args: Vec<String>,
-        stream: UnixStream,
-    },
-    RuntimeCancel {
-        stream_id: u64,
-        stream: UnixStream,
-    },
     Send {
         pane_id: u32,
         data: Vec<u8>,
-        stream: UnixStream,
-    },
-    Spawn {
-        cmd: String,
         stream: UnixStream,
     },
     Close {
@@ -74,58 +60,6 @@ pub enum ApiAction {
         no_timeout: bool,
         stream: UnixStream,
     },
-    Layout {
-        action: LayoutAction,
-        stream: UnixStream,
-    },
-    Signal {
-        pane_id: u32,
-        signal: String,
-        tree: bool,
-        stream: UnixStream,
-    },
-    Resize {
-        pane_id: u32,
-        cols: u16,
-        rows: u16,
-        stream: UnixStream,
-    },
-    Lock {
-        op: String,
-        stream: UnixStream,
-    },
-    Service {
-        action: ServiceAction,
-        stream: UnixStream,
-    },
-    Browse {
-        action: BrowseAction,
-        stream: UnixStream,
-    },
-}
-
-/// A change to the pane grid: split ratio, focus, sidebar count or cleanup.
-pub enum LayoutAction {
-    Ratio(String),
-    Focus(u32),
-    Sidebar(usize),
-    CleanIdle,
-}
-
-/// An operation on the set of long-running service panes.
-pub enum ServiceAction {
-    Spawn(String),
-    List,
-    Kill(u32),
-    Restart(u32),
-}
-
-/// An operation on the attached browser control channel.
-pub enum BrowseAction {
-    Status,
-    Send(String),
-    Restart,
-    Config,
 }
 
 /// A client waiting for one pane's command to finish.

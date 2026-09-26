@@ -393,27 +393,7 @@ fn format_duration_until(t: Instant) -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    format_rfc3339(secs)
-}
-
-// why: wall-clock RFC3339 without a date crate; civil-from-days, 1970..9999.
-fn format_rfc3339(unix_secs: u64) -> String {
-    let days = (unix_secs / 86_400) as i64;
-    let secs_today = unix_secs % 86_400;
-    let h = secs_today / 3600;
-    let m = (secs_today % 3600) / 60;
-    let s = secs_today % 60;
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097) as u64;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe as i64 + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = if month <= 2 { y + 1 } else { y };
-    format!("{year:04}-{month:02}-{d:02}T{h:02}:{m:02}:{s:02}Z")
+    crate::lifecycle::time_fmt::format_rfc3339(secs)
 }
 
 #[cfg(test)]

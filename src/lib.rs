@@ -4,6 +4,8 @@
 //! Foundation, presentation and session layers: pty spawning, terminal
 //! emulation, layout, painting, redaction, recording, panes and sessions.
 
+/// Executing queued requests against the session and answering them.
+pub mod api_dispatch;
 /// The `signal` wire verb: its name safelist, parsing and delivery.
 pub mod api_dispatch_signal;
 /// The request parser for the public verbs, and decoded request types.
@@ -12,6 +14,8 @@ pub mod capture;
 pub mod commands;
 /// Terminal emulator screen, cells, styles and scrollback.
 pub mod emulator;
+/// One poll over stdin, the control listener and the panes' ptys.
+pub mod event_loop;
 /// Secret redaction over an emulated screen.
 pub mod filter;
 /// Pane geometry, hit testing and border drawing.
@@ -20,6 +24,8 @@ pub mod frame;
 pub mod grid;
 /// Host key, mouse and paste input classification.
 pub mod input;
+/// Daemon lifecycle: detaching, session lock, signals and tick pacing.
+pub mod lifecycle;
 /// Lock state machine for the multi-client input model.
 pub mod lock;
 /// Per-pane cpu and memory sampling, and resource limits.
@@ -58,5 +64,7 @@ pub mod session_toolbar;
 pub mod status_bar;
 /// Host terminal setup, restore and signal handling.
 pub mod terminal;
+/// Main loop stall detection that aborts a hung daemon.
+pub mod watchdog;
 /// Argument parsing for the `exec` and `serve` wire verbs.
 pub mod wire_parser;
