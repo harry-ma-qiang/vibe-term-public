@@ -14,7 +14,7 @@ binary with nine subcommands: `start`, `stop`, and the seven verbs `exec`, `serv
 
 ```
 cargo build                                # zero warnings
-cargo test                                 # 415 tests
+cargo test                                 # 397 tests
 cargo run --example smoke                  # what the emulator renders
 cargo run --example run_a_command          # a real command on a real pty
 ```
@@ -79,6 +79,6 @@ If you are tempted to tidy something here, read the test names first.
 `filter.rs` blanks secret-shaped text out of a pane before it is displayed, recorded
 or read back. The shapes are built in. The literal words are not: put them in a file
 and point `VIBE_TERM_FILTER_LITERALS` at it, or leave it and nothing extra is matched.
-Nothing about any vendor, product or model is compiled in.
+Beyond the usual public key prefixes a secret scanner looks for, no word list is compiled in.
 
 It catches shapes. It cannot catch a secret that has no shape.
