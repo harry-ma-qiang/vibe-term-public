@@ -1,51 +1,37 @@
-# bug: a finished command is never marked finished
+# bug: a finished command is never marked finished — resolved
 
-This record was wrong. It is kept, corrected, because the correction is the
-interesting part: two separate things were run together under one claim.
+This record was open while the library was being ported, and it was wrong once
+before it was right. It is kept because the history is the useful part.
 
-## What the record used to claim
+## What it first claimed
 
-That nothing in the ported code ever sets `completed` to `true`, that both
-constructors initialise it to `false` and no other write exists, and that
-`Session::reap_dead_panes` is the code that would set it.
+That nothing set a pane's `completed` flag to `true`, and that
+`Session::reap_dead_panes` was the missing writer. Both halves were false:
+`Session::mark_pane_completed` in `src/session_api.rs` was the writer all along,
+and `reap_dead_panes` only reads the flag.
 
-## What is actually true
+## What was actually missing
 
-`completed` does have a writer, and it arrived with the session layer:
-`Session::mark_pane_completed` (`src/session_api.rs`) sets both `completed`
-and `completed_exit`. A test already depends on it
-(`close_pane_if_idle_closes_a_completed_pane` in `src/tests/session.rs`),
-so the claim was already false before `reap_dead_panes` was ported.
+A caller. Nothing drove `mark_pane_completed` when a managed child exited,
+because the code that runs `exec` and `serve` had not been ported.
 
-`reap_dead_panes` does not set the flag either. It removes panes whose child
-has exited, and it *reads* `completed` to skip the ones already accounted
-for. Porting it did not, and could not, change this.
+## What resolved it
 
-What is genuinely absent is the caller: nothing in the library calls
-`mark_pane_completed` on its own. In the full program the exec and serve
-driver does it when it reaps a child it is managing, and that driver is not
-ported. So a program using this library has to mark a pane itself.
+Porting the command runners. `src/commands.rs` now marks a pane finished when
+its child exits (line 194, with the real exit code) and when a run times out
+(line 235, with `-1`). An `exec` through the binary returns the command's exit
+code:
 
-## Why the example still prints `completed=false`
+    vibe-term start --name demo
+    vibe-term exec --name demo 'echo done; exit 7'
+    # {"exit_code":7,"output":"done", ...}
 
-`cargo run --example run_a_command` drives a bare `Pane` and never builds a
-`Session`. Neither `mark_pane_completed` nor `reap_dead_panes` is a `Pane`
-method, so no amount of session porting can change that output. It reports
-`completed=false` for the same reason a value nobody assigns keeps its
-initial value.
+## What is still true
 
-## What should happen
+`cargo run --example run_a_command` drives a bare `Pane` with no `Session`, so it
+still prints `completed=false`. That is correct: marking a pane finished is a
+`Session` concern, and the example deliberately goes underneath it.
 
-A caller that wants a finished command reported as finished holds a
-`Session`, and calls `mark_pane_completed` with the exit status when the
-child exits. The library offers the write; it does not perform it.
-
-## How to see it
-
-    cargo run --example run_a_command
-
-Every block prints `completed=false`, and that is correct for a bare pane.
-
-Settled by: `close_pane_if_idle_closes_a_completed_pane`
-(`src/tests/session.rs`) settles that `completed` can be set and is read.
-Nothing settles the absent driver, because there is nothing there to test.
+Settled by: `close_pane_if_idle_closes_a_completed_pane` (`src/tests/session.rs`)
+for the flag, and the `exec` run in
+`docs/test-a-started-session-detaches-and-keeps-working.md` for the driver.
